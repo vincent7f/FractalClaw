@@ -1,0 +1,15 @@
+# FractalClaw 依赖
+
+# 核心依赖
+aiohttp>=3.9.0
+
+# LLM 提供商 (可选)
+# openai>=1.0.0      # OpenAI 模型
+# anthropic>=0.18.0  # Anthropic Claude
+# ollama>=0.1.0      # 本地 Ollama
+
+# 数据库 (可选)
+# sqlalchemy>=2.0.0  # 关系型数据库
+
+# 其他
+# python-dotenv>=1.0.0  # 环境变量管理
