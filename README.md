@@ -1,6 +1,6 @@
 # FractalClaw - 基于 Fractal 架构的可进化智能体
 
-> English follows below | 英文见下方
+> An Evolutive Agent Framework Based on Fractal Architecture
 
 ## 概述 (Overview)
 
