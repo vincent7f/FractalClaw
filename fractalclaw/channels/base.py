@@ -110,6 +110,7 @@ class Channel(LeafComponent):
         self._handlers: Dict[str, MessageHandler] = {}
         self._message_queue: asyncio.Queue = asyncio.Queue()
         self._running = False
+        self._listen_task: Optional[asyncio.Task] = None
         
         # 注册服务接口
         self._register_interfaces()
@@ -300,11 +301,17 @@ class Channel(LeafComponent):
         if not self._running:
             await self.connect()
         
-        asyncio.create_task(self._receive_message_loop())
+        self._listen_task = asyncio.create_task(self._receive_message_loop())
 
     async def stop_listening(self):
         """停止监听消息"""
         self._running = False
+        if self._listen_task and not self._listen_task.done():
+            self._listen_task.cancel()
+            try:
+                await self._listen_task
+            except asyncio.CancelledError:
+                pass
         await self.disconnect()
 
 

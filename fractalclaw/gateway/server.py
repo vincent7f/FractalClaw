@@ -52,6 +52,7 @@ class GatewayServer(CompositeComponent):
         
         self._server: Optional[asyncio.Server] = None
         self._clients: Dict[str, Client] = {}
+        self._ws_connections: Dict[str, Any] = {}  # client_id -> websocket
         self._sessions: Dict[str, List[str]] = {}  # session_id -> [client_ids]
         self._handlers: Dict[str, MessageHandler] = {}
         self._running = False
@@ -66,24 +67,36 @@ class GatewayServer(CompositeComponent):
         self._ws_server = None
         self._http_app = None
 
-    async def _on_start(self):
+    def _on_start(self):
         """启动服务器"""
+        # 启动异步任务来运行服务器
+        import threading
+        import asyncio
+        
+        def run_async_server():
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            loop.run_until_complete(self._start_servers())
+            loop.run_forever()
+        
+        self._server_thread = threading.Thread(target=run_async_server, daemon=True)
+        self._server_thread.start()
+        self._running = True
+
+    async def _start_servers(self):
+        """异步启动服务器"""
         import websockets
         
-        self._running = True
         self._ws_server = await websockets.serve(
             self._ws_handler, self.host, self.port
         )
         await self._start_http_server()
 
-    async def _on_stop(self):
+    def _on_stop(self):
         """停止服务器"""
         self._running = False
-        if self._ws_server:
-            self._ws_server.close()
-            await self._ws_server.wait_closed()
-        if self._http_app:
-            await self._http_app.shutdown()
+        if hasattr(self, '_server_thread'):
+            self._server_thread = None
 
     # ==================== WebSocket 服务器 ====================
 
@@ -93,6 +106,7 @@ class GatewayServer(CompositeComponent):
         
         client = Client()
         self._clients[client.id] = client
+        self._ws_connections[client.id] = websocket
         
         try:
             # 发送连接确认
@@ -245,6 +259,7 @@ class GatewayServer(CompositeComponent):
     def _disconnect_client(self, client_id: str):
         """断开客户端连接"""
         client = self._clients.pop(client_id, None)
+        self._ws_connections.pop(client_id, None)
         if client and client.session_id:
             if client.session_id in self._sessions:
                 if client.id in self._sessions[client.session_id]:
@@ -313,11 +328,13 @@ class GatewayServer(CompositeComponent):
 
     async def _broadcast_to_client(self, client: Client, message: Dict[str, Any]):
         """向客户端发送消息（内部方法）"""
-        # 这里需要访问 WebSocket 连接
-        # 实际实现中需要维护 websocket 引用
-        message["client_id"] = client.id
-        # await websocket.send(json.dumps(message))
-        pass
+        websocket = self._ws_connections.get(client.id)
+        if websocket:
+            try:
+                message["client_id"] = client.id
+                await websocket.send(json.dumps(message))
+            except Exception:
+                pass  # Connection may have closed
 
     # ==================== 工具方法 ====================
 

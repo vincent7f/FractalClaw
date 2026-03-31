@@ -61,16 +61,24 @@ class Tool:
 
     async def execute_async(self, *args: Any, **kwargs: Any) -> Any:
         """异步执行工具"""
-        if asyncio.iscoroutinefunction(self.handler):
-            try:
-                return await self.handler(*args, **kwargs)
-            except Exception as e:
-                executor_logger.error(f"Tool {self.name} async execution failed: {e}")
-                raise ToolError(
-                    message=f"Tool async execution failed: {str(e)}",
-                    tool_name=self.name,
-                ) from e
-        return self.execute(*args, **kwargs)
+        if not self.enabled:
+            raise ToolError(
+                message=f"Tool {self.name} is disabled",
+                tool_name=self.name,
+            )
+
+        if self.handler:
+            if asyncio.iscoroutinefunction(self.handler):
+                try:
+                    return await self.handler(*args, **kwargs)
+                except Exception as e:
+                    executor_logger.error(f"Tool {self.name} async execution failed: {e}")
+                    raise ToolError(
+                        message=f"Tool async execution failed: {str(e)}",
+                        tool_name=self.name,
+                    ) from e
+            return self.execute(*args, **kwargs)
+        raise NotImplementedError(f"Tool {self.name} has no handler")
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -247,7 +255,7 @@ class ExecutorComponent(Component):
             tool = self._tools.get(task.name)
 
             if tool:
-                output = tool.execute(task=task, context=context)
+                output = tool.execute(context.get("query", ""))
             else:
                 # 默认处理
                 output = f"Task '{task.name}' processed with context: {context}"
@@ -310,7 +318,7 @@ class ExecutorComponent(Component):
             tool = self._tools.get(task.name)
 
             if tool:
-                output = await tool.execute_async(task=task, context=context)
+                output = await tool.execute_async(context.get("query", ""))
             else:
                 output = f"Task '{task.name}' processed"
 

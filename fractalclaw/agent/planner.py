@@ -135,7 +135,7 @@ class PlannerComponent(Component):
         """
         plan = Plan(goal=goal)
         
-        # 简单的任务分解策略
+        # 传递上下文信息给任务分解
         tasks = self._decompose(goal, context or [])
         plan.tasks = tasks
         
@@ -149,6 +149,7 @@ class PlannerComponent(Component):
         任务分解
         
         这是一个简单的实现，实际可以接入 LLM 进行智能分解
+        context 参数可用于更智能的任务分解
         """
         tasks = []
         

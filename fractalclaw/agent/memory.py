@@ -319,8 +319,9 @@ class MemoryComponent(Component):
 
     def store(self, key: str, value: Any, metadata: Optional[Dict] = None) -> str:
         """存储记忆"""
+        # 使用 key 作为 memory id，便于后续检索
         memory = MemoryItem(
-            id=str(uuid.uuid4()),
+            id=key,
             content=str(value),
             metadata=metadata or {},
         )
